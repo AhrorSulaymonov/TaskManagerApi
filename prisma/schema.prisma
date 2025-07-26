@@ -1,0 +1,177 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Tizimdagi global rollar
+enum Role {
+  USER
+  ADMIN
+  SUPER_ADMIN
+}
+
+// Vazifa statuslari
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+}
+
+// Loyiha ichidagi rollar
+enum ProjectRole {
+  OWNER // Loyiha egasi
+  ADMIN // Loyiha administratori
+  MEMBER // Oddiy a'zo
+}
+
+// ================== ASOSIY MODELLAR ==================
+
+model User {
+  id String @id @default(cuid())
+
+  firstName      String
+  lastName       String
+  username       String? @unique
+  avatarImageUrl String?
+
+  email        String  @unique
+  pendingEmail String? @unique
+  passwordHash String
+  phoneNumber  String? @unique
+
+  role Role @default(USER)
+
+  isActive         Boolean @default(true) // <-- YANGI QO'SHILGAN MAYDON
+  isVerified       Boolean @default(false)
+  verificationCode String? @unique
+
+  refreshTokenHash   String?
+  resetPasswordToken String?   @unique
+  resetTokenExpires  DateTime?
+
+  reactivationToken        String?   @unique
+  reactivationTokenExpires DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // --- Aloqalar ---
+  createdTasks       Task[]          @relation("TaskAuthor")
+  ownedProjects      Project[]       @relation("ProjectOwner")
+  projectMemberships ProjectMember[]
+  comments           Comment[]
+  favoriteTasks      Task[]          @relation("UserFavoriteTasks")
+  favoriteProjects   Project[]       @relation("UserFavoriteProjects")
+}
+
+model Task {
+  id String @id @default(cuid())
+
+  title        String
+  description  String?
+  status       TaskStatus @default(PENDING)
+  taskImageUrl String?
+  dueDate      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // --- Aloqalar ---
+  authorId String
+  author   User   @relation("TaskAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  comments    Comment[]
+  subtasks    Subtask[]
+  attachments Attachment[]
+  tags        Tag[]        @relation("TaskTags")
+  favoritedBy User[]       @relation("UserFavoriteTasks")
+}
+
+// ================== YORDAMCHI MODELLAR ==================
+
+model Project {
+  id              String  @id @default(cuid())
+  name            String
+  description     String?
+  projectImageUrl String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // --- Aloqalar ---
+  ownerId String
+  owner   User   @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+
+  tasks       Task[]
+  members     ProjectMember[]
+  favoritedBy User[]          @relation("UserFavoriteProjects")
+}
+
+model ProjectMember {
+  id       String      @id @default(cuid())
+  joinedAt DateTime    @default(now())
+  role     ProjectRole @default(MEMBER)
+
+  // --- Aloqalar ---
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, projectId])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // --- Aloqalar ---
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  taskId String
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+}
+
+model Tag {
+  id    String @id @default(cuid())
+  name  String @unique
+  color String
+
+  // --- Aloqalar ---
+  tasks Task[] @relation("TaskTags")
+}
+
+model Subtask {
+  id         String  @id @default(cuid())
+  title      String
+  isComplete Boolean @default(false)
+
+  // --- Aloqalar ---
+  taskId String
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+}
+
+model Attachment {
+  id         String   @id @default(cuid())
+  fileName   String
+  fileUrl    String
+  fileType   String
+  uploadedAt DateTime @default(now())
+
+  // --- Aloqalar ---
+  taskId String
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+}
