@@ -19,7 +19,7 @@
     "start:docker:prod": "npm run prisma:deploy && npm run prisma:seed && npm run start:prod"
   },
   "prisma": {
-    "seed": "node prisma/seed.ts"
+    "seed": "ts-node prisma/seed.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.848.0",
